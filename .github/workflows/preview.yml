@@ -1,69 +1,44 @@
-name: Preview Deployment
+name: preview-deploy
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize]
+    branches:
+      - main
 
 jobs:
   preview-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Check out the code
+      - name: Set up job
+        uses: actions/checkout@v3
+
       - name: Check out repository
         uses: actions/checkout@v3
 
-      # 2. Set up environment (Node.js, cURL, etc. as needed)
       - name: Set up Node
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: 18  # Make sure this is compatible with @wix/cli
 
-      # 3. (Optional) Install dependencies if your project needs a build step
       - name: Install dependencies
         run: npm install
 
-      # 4. Build/Compile your project if needed
-      - name: Build project
-        run: npm run build
-
-      # 5. Deploy to Wix Studio (Pseudo-step - adjust for actual Wix CLI or API)
       - name: Deploy to Wix Studio
         run: |
-          # Example command to deploy using a hypothetical Wix CLI
-          # Replace with actual commands or cURL calls to Wix Studio's API
-          wix-cli deploy \
+          npx @wix/cli@1.8.1 site preview deploy \
             --api-key ${{ secrets.WIX_API_KEY }} \
             --site-id ${{ secrets.WIX_SITE_ID }} \
             --branch ${{ github.head_ref }} \
             --output preview-url.txt
 
-      # 6. Extract the preview URL from the CLI output (or from an API response)
       - name: Read preview URL
-        id: get_preview_url
-        run: |
-          # Example: read a file or parse JSON from the API
-          PREVIEW_URL=$(cat preview-url.txt)
-          echo "preview_url=$PREVIEW_URL" >> $GITHUB_OUTPUT
+        id: read_preview_url
+        run: echo "preview_url=$(cat preview-url.txt)" >> "$GITHUB_OUTPUT"
 
-      # 7. Post the preview URL as a comment on the PR
       - name: Post Preview Link
-        uses: actions/github-script@v6
+        uses: mshick/add-pr-comment@v2
         with:
-          script: |
-            const previewUrl = "${{ steps.get_preview_url.outputs.preview_url }}";
-            const timeStamp = new Date().toISOString();
-            const commentBody = `
-              **Preview Deployment**  
-              URL: ${previewUrl}  
-              Timestamp: ${timeStamp}  
-              Deployment Status: Success
-            `;
-
-            // Post a comment on the PR
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: commentBody
-            });
+          message: |
+            🚀 Preview deployed!  
+            🌍 [Click here to view the preview](${{ steps.read_preview_url.outputs.preview_url }})
