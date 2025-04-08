@@ -1,29 +1,21 @@
-name: preview-deploy
+name: Preview Deployment
 
 on:
   pull_request:
-    branches:
-      - main
+    types: [opened, reopened, synchronize]  # only trigger when the PR is actively being worked on
 
 jobs:
   preview-deploy:
+    if: ${{ github.event.pull_request.merged == false }}  # only run if the PR has not been merged
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
 
-      # Remove Node steps if you don't have a package.json or don't use Node.
-      # - name: Set up Node
-      #   uses: actions/setup-node@v3
-      #   with:
-      #     node-version: 18
-
-      # - name: Install dependencies
-      #   run: npm install
-
-      # - name: Build project
-      #   run: npm run build
+      # If you don't need Node.js steps and a package.json in your project,
+      # you can remove any Node-specific steps (npm install/build). For this example,
+      # we're assuming they're not required.
 
       - name: Deploy to Wix Studio
         run: |
@@ -38,8 +30,20 @@ jobs:
         run: echo "preview_url=$(cat preview-url.txt)" >> "$GITHUB_OUTPUT"
 
       - name: Post Preview Link
-        uses: mshick/add-pr-comment@v2
+        uses: actions/github-script@v6
         with:
-          message: |
-            🚀 Preview deployed!  
-            🌍 [Click here to view the preview](${{ steps.read_preview_url.outputs.preview_url }})
+          script: |
+            const previewUrl = "${{ steps.read_preview_url.outputs.preview_url }}";
+            const timeStamp = new Date().toISOString();
+            const commentBody = `
+              **Preview Deployment**  
+              URL: ${previewUrl}  
+              Timestamp: ${timeStamp}  
+              Deployment Status: Success
+            `;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: commentBody
+            });
